@@ -1,0 +1,9 @@
+variables:
+- name: service_connection
+  value: 'xxxx'
+- name: rg_name
+  value: 'xxxx'
+- name: tfstate_storage
+  value: 'cxxx'
+- name: tfstate_storage_container
+  value: 'xxx'

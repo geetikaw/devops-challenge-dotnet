@@ -1,0 +1,4 @@
+variables:
+# - group: test-lib-1 #points to a env
+- name: tf_version
+  value: '0.12.10'

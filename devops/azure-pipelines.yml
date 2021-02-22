@@ -1,0 +1,35 @@
+name: test-storage-pipeline
+
+trigger:
+- main
+
+pool:
+  vmImage: 'ubuntu-16.04'
+
+variables:
+- template: ../config.common.yml
+- name: deployment_type  # what type of infratructure, needs to be matched with one of the file name under infra
+  value: storage
+
+
+stages:
+- stage: Setup_Build
+  displayName: 'Setup Environment'
+  jobs:
+  - job: Setup
+    steps:
+    - script: echo 'Updating env var'
+  - job: Build
+    dependsOn: Setup
+    steps:
+    - script: echo 'Gated Check'
+    - publish: $(Agent.BuildDirectory)/s/infra/storage/
+      artifact: pipeline_artifacts
+
+- template: ../tfcd.common.yml
+  parameters:  
+    deploy_type: '${{ variables.deployment_type }}'
+    tf_version: '${{ variables.tf_version }}'
+    deploy_envs: 
+    - env_name: "test"
+    - env_name: "dev"

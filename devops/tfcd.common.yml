@@ -1,0 +1,59 @@
+parameters:
+- name: deploy_type
+  type: string
+- name: tf_version
+  type: string
+- name: deploy_envs
+  type: object
+
+stages:
+- ${{ each env in parameters.deploy_envs }}:
+  - stage: 'DownloadArtifact_Deploy_${{ env.env_name }}'
+    displayName: 'DownloadArtifact_Deploy_${{ env.env_name }}'
+    variables:
+    - template: ./${{ parameters.deploy_type }}/env_config/${{ env.env_name }}.yml
+    jobs: 
+    - deployment: '${{ env.env_name }}'  #TODO: try to use git commit history here to provide more information?
+      environment: '${{ env.env_name }}'
+      strategy:
+        runOnce: # Please see deployment jobs to find any other deployment strategies
+          # Please see deployment jobs to find any other lifecycle hooks
+          preDeploy:
+            steps:
+            - script: echo 'preDeploy'
+          deploy:
+            steps:
+            - task: DownloadPipelineArtifact@2
+              inputs:
+                buildType: 'current'
+                artifactName: 'pipeline_artifacts'
+                targetPath: '$(System.DefaultWorkingDirectory)/pipeline_artifacts'
+            - checkout: none
+            - task: TerraformInstaller@0
+              inputs:
+                terraformVersion: '${{ parameters.tf_version }}'
+            - task: TerraformTaskV1@0
+              inputs:
+                provider: 'azurerm'
+                command: 'init'
+                workingDirectory: '$(System.DefaultWorkingDirectory)/pipeline_artifacts'
+                backendServiceArm: '${{ variables.service_connection }}'
+                backendAzureRmResourceGroupName: '${{ variables.rg_name }}'
+                backendAzureRmStorageAccountName: '${{ variables.tfstate_storage }}'
+                backendAzureRmContainerName: '${{ variables.tfstate_storage_container }}'
+                backendAzureRmKey: 'tfstate_${{ parameters.deploy_type }}_${{ env.env_name }}'
+            - task: TerraformTaskV1@0
+              inputs:
+                provider: 'azurerm'
+                command: 'plan'
+                commandOptions: | 
+                  -var rg=${{ variables.rg_name }} -var env=${{ env.env_name }} -out=./exe_plan
+                workingDirectory: '$(System.DefaultWorkingDirectory)/pipeline_artifacts'
+                environmentServiceNameAzureRM: '${{ variables.service_connection }}'
+            - task: TerraformTaskV1@0
+              inputs:
+                provider: 'azurerm'
+                command: 'apply'
+                workingDirectory: '$(System.DefaultWorkingDirectory)/pipeline_artifacts'
+                commandOptions: '-auto-approve ./exe_plan'
+                environmentServiceNameAzureRM: '${{ variables.service_connection }}'
